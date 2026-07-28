@@ -1,10 +1,15 @@
-const express = require('express');
-const path = require('path');
-const app = express();
+javascriptconst express = require('express');
+const cors = require('cors');
 
-// Serve the static engine files smoothly out of the root directory lanes
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
+const app = express();
+app.use(cors());
+
+// Serve the configuration files smoothly out of the root directory lanes
 app.use(express.static(__dirname));
 
+// 1. FRONT-END INTERFACE GATEWAY: Serves the premium student workspace dashboard
 app.get('/', (req, res) => {
     const activeAssignment = req.query.assignment || '';
     const activeSearch = req.query.q || '';
@@ -47,12 +52,11 @@ app.get('/', (req, res) => {
                 iframe { width: 100%; height: 100%; border: none; margin: 0; padding: 0; }
                 #result-link { margin-top: 25px; padding: 15px; background: #f0f7ff; border: 1px solid #bae7ff; border-radius: 8px; display: none; word-break: break-all; font-size: 14px; }
             </style>
-            <!-- Pre-load Ultraviolet initialization components safely -->
             <script src="/uv.config.js"></script>
         </head>
         <body>
             <div id="viewPanel" class="view-panel">
-                <iframe id="proxyIframe" src="${activeSearch ? '/service/' + encodeURIComponent(decodeURIComponent(activeSearch)) : ''}"></iframe>
+                <iframe id="proxyIframe" src="${activeSearch ? '/service/' + encodeURIComponent(decodeURIComponent(activeSearch)) : ''}" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe>
             </div>
             <div id="mainUI" class="app-container">
                 <div class="sidebar">
@@ -80,7 +84,6 @@ app.get('/', (req, res) => {
                 </div>
             </div>
             <script>
-                // Formally registers the server worker container loop directly inside browser tab memory
                 if ('serviceWorker' in navigator) {
                     window.navigator.serviceWorker.register('/uv.sw.js', { scope: __uv$config.prefix });
                 }
@@ -112,5 +115,48 @@ app.get('/', (req, res) => {
     `);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Unrestricted Viewport Matrix running on port ${PORT}`));
+// 2. CRITICAL FIX: Direct wildcard listener captures the '/service/' prefix data streams smoothly
+app.get('/service/*', async (req, res) => {
+    // Strips the root path prefix out to extract the raw target website payload destination URL
+    let targetUrl = req.params[0];
+    if (!targetUrl) return res.status(400).send("No target site URL specified.");
+    
+    // Auto-decode nested url encryption strings safely
+    targetUrl = decodeURIComponent(targetUrl);
+
+    try {
+        const urlObj = new URL(targetUrl);
+        const options = {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Origin': urlObj.origin,
+                'Referer': urlObj.origin
+            }
+        };
+
+        const response = await fetch(targetUrl, options);
+        let contentType = response.headers.get('content-type') || '';
+        
+        if (!contentType.includes('text/html')) {
+            const dataBuffer = await response.buffer();
+            res.setHeader('Content-Type', contentType);
+            return res.send(dataBuffer);
+        }
+
+        let htmlContent = await response.text();
+        const injectionBase = `<head><base href="${urlObj.origin}/"><script>
+            (function() {
+                Object.defineProperty(window, 'top', { value: window, configurable: false, writable: false });
+                Object.defineProperty(window, 'parent', { value: window, configurable: false, writable: false });
+            })();
+        </script>`;
+        
+        htmlContent = htmlContent.replace(/<head>/i, injectionBase);
+        htmlContent = htmlContent.replace(/content-security-policy/gi, 'disabled-csp');
+        htmlContent = htmlContent.replace(/x-frame-options/gi, 'disabled-xfo');
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+Use code with caution.res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');res.send(htmlContent);} catch (err) {res.status(500).send(<h3>Proxy Server Pipeline Error:</h3><p>${err.message}</p>);}});const PORT = process.env.PORT || 3000;app.listen(PORT, () => console.log(Unrestricted Viewport Matrix operating live on port ${PORT}));
