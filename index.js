@@ -1,72 +1,87 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+const path = require('path');
 
 const app = express();
-app.use(cors(), express.static(__dirname));
+const server = http.createServer(app);
 
+// Allow unrestricted asynchronous cross-origin asset downloads across our framework lanes
+app.use(cors());
+app.use(express.static(__dirname));
+
+// FRONT-END VIEW CONTROLLER: Securely serves your index.html layout file without memory manipulation
 app.get('/', (req, res) => {
-    const active = req.query.assignment || '';
-    const q = req.query.q || '';
-
-    res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Student Workspace Portal</title><style>
-        body,html{margin:0;padding:0;width:100%;height:100%;font-family:sans-serif;background:#f4f6f9;color:#1e293b;overflow:hidden;}
-        .app-container{display:flex;min-height:100vh;}
-        .sidebar{width:260px;background:#2c3e50;color:white;display:flex;flex-direction:column;padding:20px;box-sizing:border-box;}
-        .school-logo{font-size:18px;font-weight:800;padding-bottom:25px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:20px;}
-        .nav-item{padding:12px 15px;border-radius:6px;margin-bottom:8px;font-size:14px;color:rgba(255,255,255,0.8);}
-        .nav-item.active{background:#34495e;color:white;}
-        .main-content{flex:1;padding:40px;box-sizing:border-box;overflow-y:auto;display:flex;flex-direction:column;gap:30px;}
-        .header-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:25px;position:relative;}
-        .header-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:#0070f3;}
-        .status-badge{display:${active?'inline-block':'none'};padding:4px 12px;font-size:12px;font-weight:700;border-radius:20px;background:#dcfce7;color:#15803d;margin-bottom:12px;text-transform:uppercase;}
-        .tool-box{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:30px;}
-        input{width:100%;padding:14px 16px;font-size:15px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;margin-bottom:20px;outline:none;background:#f8fafc;}
-        button{display:block;padding:14px 24px;font-size:15px;background:#0070f3;color:white;border:none;border-radius:8px;cursor:pointer;width:100%;font-weight:600;}
-        .bot-btn{background:#1e293b;margin-top:10px;}
-        .view-panel{display:${q?'block':'none'};width:100%;height:100%;position:fixed;top:0;left:0;z-index:1000;background:#fff;}
-        iframe{width:100%;height:100%;border:none;}
-        #result-link{margin-top:25px;padding:15px;background:#f0f7ff;border:1px solid #bae7ff;border-radius:8px;display:none;word-break:break-all;}
-    </style><script src="/uv.config.js"></script></head><body>
-        <div class="view-panel"><iframe src="${q?'/service/'+encodeURIComponent(decodeURIComponent(q)):''}" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe></div>
-        <div class="app-container"><div class="sidebar"><div class="school-logo">CampusWorkspace</div><div class="nav-item active">Assignment Core</div><div class="nav-item">Course Modules</div></div>
-        <div class="main-content"><div class="header-card"><div class="status-badge">Active Session: ${active.toUpperCase()}</div><h2>Research Module: ${active.replace(/-/g,' ').toUpperCase() || 'General Gateway'}</h2></div>
-        <div class="tool-box"><h3>External Research Engine Tunnel</h3><input type="text" id="urlInput" placeholder="Enter target site..."><button id="searchBtn">Execute Research Pipeline</button></div>
-        <div class="tool-box"><h3>Proxy Dispenser Bot</h3><button class="bot-btn" id="cloneBtn">Replicate Workspace Node</button><div id="result-link"></div></div></div></div>
-        <script>
-            if('serviceWorker' in navigator){navigator.serviceWorker.register('/uv.sw.js',{scope:__uv$config.prefix});}
-            document.getElementById('searchBtn').onclick=function(){
-                let t=document.getElementById('urlInput').value.trim(); if(!t)return;
-                if(!t.includes('.')){t='https://google.com;}else if(!/^https?:\\/\\//i.test(t)){t='https://'+t;}
-                const s=['algebra-workbook','geometry-proofs','calculus-limits','history-archive'];
-                window.location.href='/?assignment='+s[Math.floor(Math.random()*s.length)]+'-'+Math.floor(1000+Math.random()*9000)+'&q='+encodeURIComponent(t);
-            };
-            document.getElementById('cloneBtn').onclick=function(){
-                const div=document.getElementById('result-link'); div.style.display="block";
-                const s=['algebra-workbook','geometry-proofs','calculus-limits'];
-                const n=window.location.origin+'/?assignment='+s[Math.floor(Math.random()*s.length)]+'-'+Math.floor(1000+Math.random()*9000);
-                div.innerHTML='<strong>Generated Node Link:</strong><br><br><a href="'+n+'" target="_self" style="color:#0070f3;text-decoration:none;">'+n+'</a>';
-            };
-        </script>
-    </body></html>`);
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// BACKEND ROUTING ENGINE: Explicitly handles parameter processing using a direct property search
 app.get('/service/*', async (req, res) => {
-    // CRITICAL FIX: Explicitly targets the index 0 array key within req.params to process wildcards correctly
-    let t = req.params[0];
-    if(!t) return res.status(400).send("No URL specified.");
-    t = decodeURIComponent(t);
+    // FIX: Extracts the raw path string parameter by explicitly reading the array index key
+    const wildcardPath = req.params[0];
+    if (!wildcardPath) return res.status(400).send("No target site URL specified.");
 
     try {
-        const u = new URL(t);
-        const resData = await fetch(t, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        let contentType = resData.headers.get('content-type') || '';
-        if(!contentType.includes('text/html')){ return res.send(await resData.buffer()); }
-        let html = await resData.text();
-        html = html.replace(/<head>/i, `<head><base href="${u.origin}/"><script>(function(){Object.defineProperty(window,'top',{value:window});Object.defineProperty(window,'parent',{value:window});})();<\/script>`);
-        res.setHeader('Content-Type','text/html;charset=utf-8');
-        res.send(html.replace(/content-security-policy/gi,'disabled-csp').replace(/x-frame-options/gi,'disabled-xfo'));
-    } catch(err) { res.status(500).send(`Error: ${err.message}`); }
+        // Automatically translate incoming URL-hex structures inside server memory
+        let targetUrl = decodeURIComponent(wildcardPath);
+
+        if (!/^https?:\/\//i.test(targetUrl)) {
+            targetUrl = 'https://' + targetUrl;
+        }
+
+        const urlObj = new URL(targetUrl);
+        const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+
+        const options = {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Origin': urlObj.origin,
+                'Referer': urlObj.origin
+            }
+        };
+
+        const response = await fetch(targetUrl, options);
+        let contentType = response.headers.get('content-type') || '';
+
+        // Safely pass streaming binary assets (videos, files, graphics) straight through the domain
+        if (!contentType.includes('text/html')) {
+            const dataBuffer = await response.buffer();
+            res.setHeader('Content-Type', contentType);
+            return res.send(dataBuffer);
+        }
+
+        let htmlContent = await response.text();
+
+        // INJECTION MASK: Inject base path anchors so dynamic sub-scripts pull data seamlessly
+        const injectionBlock = `<head><base href="${urlObj.origin}/"><script>
+            (function() {
+                // Freeze the window navigation variables to stop frame breakouts completely
+                try {
+                    Object.defineProperty(window, 'top', { value: window, configurable: false, writable: false });
+                    Object.defineProperty(window, 'parent', { value: window, configurable: false, writable: false });
+                } catch(e) {}
+            })();
+        <\/script>`;
+
+        htmlContent = htmlContent.replace(/<head>/i, injectionBlock);
+
+        // Delete restrictive frame locks and network blocks on the server layer before passing data to screen
+        htmlContent = htmlContent.replace(/content-security-policy/gi, 'disabled-csp');
+        htmlContent = htmlContent.replace(/x-frame-options/gi, 'disabled-xfo');
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+        
+        res.send(htmlContent);
+
+    } catch (err) {
+        res.status(500).send(`<h3>Proxy Server Pipeline Exception:</h3><p>${err.message}</p>`);
+    }
 });
 
-app.listen(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Unrestricted Proxy Gateway live on port ${PORT}`));
