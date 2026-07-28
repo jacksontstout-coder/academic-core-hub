@@ -1,36 +1,20 @@
- const express = require('express');
-const cors = require('cors');
-
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
+const express = require('express');
+const path = require('path');
 const app = express();
-app.use(cors());
 
-app.get('/', async (req, res) => {
+// Serve the static engine files smoothly out of the root directory lanes
+app.use(express.static(__dirname));
+
+app.get('/', (req, res) => {
     const activeAssignment = req.query.assignment || '';
     const activeSearch = req.query.q || '';
 
-    if (activeSearch) {
-        let targetUrl = decodeURIComponent(activeSearch);
-        res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Student Workspace Portal - Active Session</title>
-                <style>html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }</style>
-            </head>
-            <body>
-                <iframe src="/stream-gateway?url=${encodeURIComponent(targetUrl)}&assignment=${encodeURIComponent(activeAssignment)}" style="width:100%; height:100%; border:none;" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe>
-            </body>
-            </html>
-        `);
-        return;
-    }
-
+    let bannerStyle = "display: none;";
     let bannerText = "";
     let headerText = "General Database Search Gateway";
 
     if (activeAssignment) {
+        bannerStyle = "display: inline-block;";
         bannerText = `Active Session: ${activeAssignment.toUpperCase()}`;
         headerText = `Research Module: ${activeAssignment.replace(/-/g, ' ').toUpperCase()}`;
     }
@@ -59,11 +43,18 @@ app.get('/', async (req, res) => {
                 input[type="text"]:focus { border-color: #0070f3; background: white; }
                 .action-btn { display: block; padding: 14px 24px; font-size: 15px; background: #0070f3; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; box-sizing: border-box; text-align: center; }
                 .bot-btn { background: #1e293b; margin-top: 10px; }
+                .view-panel { display: ${activeSearch ? 'block' : 'none'}; width: 100%; height: 100%; border: none; box-sizing: border-box; position: fixed; top: 0; left: 0; z-index: 1000; background: #fff; }
+                iframe { width: 100%; height: 100%; border: none; margin: 0; padding: 0; }
                 #result-link { margin-top: 25px; padding: 15px; background: #f0f7ff; border: 1px solid #bae7ff; border-radius: 8px; display: none; word-break: break-all; font-size: 14px; }
             </style>
+            <!-- Pre-load Ultraviolet initialization components safely -->
+            <script src="/uv.config.js"></script>
         </head>
         <body>
-            <div class="app-container">
+            <div id="viewPanel" class="view-panel">
+                <iframe id="proxyIframe" src="${activeSearch ? '/service/' + encodeURIComponent(decodeURIComponent(activeSearch)) : ''}"></iframe>
+            </div>
+            <div id="mainUI" class="app-container">
                 <div class="sidebar">
                     <div class="school-logo">CampusWorkspace</div>
                     <div class="nav-item active">Assignment Core</div>
@@ -89,6 +80,11 @@ app.get('/', async (req, res) => {
                 </div>
             </div>
             <script>
+                // Formally registers the server worker container loop directly inside browser tab memory
+                if ('serviceWorker' in navigator) {
+                    window.navigator.serviceWorker.register('/uv.sw.js', { scope: __uv$config.prefix });
+                }
+
                 document.getElementById('searchBtn').onclick = function() {
                     let target = document.getElementById('urlInput').value.trim();
                     if (!target) return;
@@ -101,6 +97,7 @@ app.get('/', async (req, res) => {
                     const randomSubject = subs[Math.floor(Math.random() * subs.length)] + '-' + Math.floor(1000 + Math.random() * 9999);
                     window.location.href = '/?assignment=' + randomSubject + '&q=' + encodeURIComponent(target);
                 };
+
                 document.getElementById('cloneBtn').onclick = function() {
                     const div = document.getElementById('result-link');
                     div.style.display = "block";
@@ -115,53 +112,5 @@ app.get('/', async (req, res) => {
     `);
 });
 
-app.get('/stream-gateway', async (req, res) => {
-    let targetUrl = req.query.url;
-    let assignment = req.query.assignment || '';
-    if (!targetUrl) return res.status(400).send("No target site URL specified.");
-
-    try {
-        const urlObj = new URL(targetUrl);
-        const options = {
-            method: 'GET',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Referer': urlObj.origin
-            }
-        };
-
-        const response = await fetch(targetUrl, options);
-        let contentType = response.headers.get('content-type') || '';
-        
-        if (!contentType.includes('text/html')) {
-            const dataBuffer = await response.buffer();
-            res.setHeader('Content-Type', contentType);
-            return res.send(dataBuffer);
-        }
-
-        let htmlContent = await response.text();
-        const injectionBase = `<head><base href="${urlObj.origin}/"><script>
-            (function() {
-                Object.defineProperty(window, 'top', { value: window, configurable: false, writable: false });
-                Object.defineProperty(window, 'parent', { value: window, configurable: false, writable: false });
-                window.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const form = e.target;
-                    if (form.action) {
-                        window.parent.location.href = window.location.origin + '/?assignment=${assignment}&q=' + encodeURIComponent(form.action);
-                    }
-                }, true);
-            })();
-        </script>`;
-        
-        htmlContent = htmlContent.replace(/<head>/i, injectionBase);
-        htmlContent = htmlContent.replace(/content-security-policy/gi, 'disabled-csp');
-        htmlContent = htmlContent.replace(/x-frame-options/gi, 'disabled-xfo');
-
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-        res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-        res.send(htmlContent);
-    } catch (err) {
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Unrestricted Viewport Matrix running on port ${PORT}`));
