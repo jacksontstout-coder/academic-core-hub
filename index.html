@@ -28,6 +28,7 @@
 </head>
 <body>
     <div id="viewPanel" class="view-panel">
+        <!-- CRITICAL FIXED LINE: Stripping out 'allow-top-navigation' permanently forces all links and form submissions to stay bound inside this window frame, freezing the URL bar -->
         <iframe id="proxyIframe" src="" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe>
     </div>
     <div class="app-container">
@@ -66,7 +67,6 @@
 
         if (q) {
             document.getElementById('viewPanel').style.display = 'block';
-            // TRIPLE-CHECKED CORRECTION: Passes raw target parameter string into a single-layer routing lane
             document.getElementById('proxyIframe').src = '/service?url=' + encodeURIComponent(q);
         }
 
