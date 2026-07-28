@@ -165,4 +165,3 @@ app.get('/stream-gateway', async (req, res) => {
         res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
         res.send(htmlContent);
     } catch (err) {
-res.status(500).send(<h3>Streaming Proxy Server Error:</h3><p>${err.message}</p>);}});const PORT = process.env.PORT || 3000;app.listen(PORT, () => console.log(Unrestricted Proxy Gateway live on port ${PORT}));
