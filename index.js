@@ -6,33 +6,40 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const app = express();
 app.use(cors());
 
-// Primary entry gate to process both the workspace dashboard and the live proxy views
 app.get('/', async (req, res) => {
     const activeAssignment = req.query.assignment || '';
     const activeSearch = req.query.q || '';
 
-    // IF SEARCH PAYLOAD EXISTS: Handle server stream mapping internally to prevent iframe locks
+    // CRITICAL PATCH: If a search payload exists, fetch the site through an unblocked public gateway lane
     if (activeSearch) {
         let targetUrl = decodeURIComponent(activeSearch);
         try {
             const urlObj = new URL(targetUrl);
+            
+            // Public unblocked developer CORS pipeline that bridges network requests smoothly
+            const publicGateway = "https://corsproxy.io?" + encodeURIComponent(targetUrl);
+
             const options = {
                 method: 'GET',
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5'
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
                 }
             };
 
-            const response = await fetch(targetUrl, options);
+            const response = await fetch(publicGateway, options);
             let htmlContent = await response.text();
 
-            // Inject an internal base path tag so relative styling/scripts resolve cleanly
-            const injectionBase = `<head><base href="${urlObj.origin}/">`;
+            // Inject a safe base path tag so sub-assets resolve directly through target domains
+            const injectionBase = `<head><base href="${urlObj.origin}/"><script>
+                (function() {
+                    // Force-freeze tab navigation variables to keep actions bound inside the tab
+                    Object.defineProperty(window, 'top', { value: window, configurable: false, writable: false });
+                    Object.defineProperty(window, 'parent', { value: window, configurable: false, writable: false });
+                })();
+            <\/script>`;
+            
             htmlContent = htmlContent.replace(/<head>/i, injectionBase);
-
-            // Strip explicit validation blocks on the server layer before passing data back
             htmlContent = htmlContent.replace(/content-security-policy/gi, 'disabled-csp');
             htmlContent = htmlContent.replace(/x-frame-options/gi, 'disabled-xfo');
 
@@ -40,17 +47,14 @@ app.get('/', async (req, res) => {
             return res.send(htmlContent);
 
         } catch (err) {
-            return res.status(500).send(`<h3>Proxy Server Pipeline Timeout:</h3><p>${err.message}</p>`);
+            return res.status(500).send(`<h3>Gateway Connection Fault:</h3><p>${err.message}</p>`);
         }
     }
 
-    // DEFAULT INTERFACE LAYOUT: Serves the clean student dashboard portal when not searching
-    let bannerStyle = "display: none;";
     let bannerText = "";
     let headerText = "General Database Search Gateway";
 
     if (activeAssignment) {
-        bannerStyle = "display: inline-block;";
         bannerText = `Active Session: ${activeAssignment.toUpperCase()}`;
         headerText = `Research Module: ${activeAssignment.replace(/-/g, ' ').toUpperCase()}`;
     }
@@ -80,7 +84,7 @@ app.get('/', async (req, res) => {
                 .action-btn { display: block; padding: 14px 24px; font-size: 15px; background: #0070f3; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; box-sizing: border-box; text-align: center; }
                 .bot-btn { background: #1e293b; margin-top: 10px; }
                 #result-link { margin-top: 25px; padding: 15px; background: #f0f7ff; border: 1px solid #bae7ff; border-radius: 8px; display: none; word-break: break-all; font-size: 14px; }
-                .view-panel { display: none; width: 100%; height: 100%; border: none; box-sizing: border-box; position: fixed; top: 0; left: 0; z-index: 1000; background: #fff; }
+                .view-panel { display: ${activeSearch ? 'block' : 'none'}; width: 100%; height: 100%; border: none; box-sizing: border-box; position: fixed; top: 0; left: 0; z-index: 1000; background: #fff; }
                 iframe { width: 100%; height: 100%; border: none; margin: 0; padding: 0; }
             </style>
         </head>
@@ -102,7 +106,7 @@ app.get('/', async (req, res) => {
                     </div>
                     <div class="tool-box">
                         <h3>External Research Engine Tunnel</h3>
-                        <p style="color:#64748b; font-size:14px; margin-bottom:20px;">Type any URL or streaming media site below to compile an unblocked proxy pipeline inside this viewport layout.</p>
+                        <p style="color:#64748b; font-size:14px; margin-bottom:20px;">Type any URL or website destination below to launch an unblocked proxy mirror inside this tab container workspace.</p>
                         <input type="text" id="urlInput" placeholder="Enter target site here (e.g., google.com, dulo.tv)..." autocomplete="off">
                         <button class="action-btn" id="searchBtn">Execute Research Pipeline</button>
                     </div>
@@ -117,20 +121,17 @@ app.get('/', async (req, res) => {
                 document.getElementById('searchBtn').onclick = function() {
                     let target = document.getElementById('urlInput').value.trim();
                     if (!target) return;
-                    
                     if (!target.includes('.')) {
                         target = 'https://google.com' + encodeURIComponent(target);
                     } else if (!/^https?:\\/\\//i.test(target)) {
                         target = 'https://' + target;
                     }
-
                     const subs = ['algebra-workbook', 'geometry-proofs', 'calculus-limits', 'history-archive'];
                     const randomSubject = subs[Math.floor(Math.random() * subs.length)] + '-' + Math.floor(1000 + Math.random() * 9999);
                     
                     document.getElementById('viewPanel').style.display = 'block';
                     document.getElementById('proxyIframe').src = '/?assignment=' + randomSubject + '&q=' + encodeURIComponent(target);
                 };
-
                 document.getElementById('cloneBtn').onclick = function() {
                     const div = document.getElementById('result-link');
                     div.style.display = "block";
@@ -146,4 +147,4 @@ app.get('/', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`System operating live on port ${PORT}`));
+app.listen(PORT, () => console.log(`Unrestricted Proxy Gateway live on port ${PORT}`));
