@@ -27,7 +27,6 @@
     </style>
 </head>
 <body>
-    <!-- Hidden Web Proxy Frame Layer Component -->
     <div id="viewPanel" class="view-panel">
         <iframe id="proxyIframe" src="" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe>
     </div>
@@ -67,8 +66,8 @@
 
         if (q) {
             document.getElementById('viewPanel').style.display = 'block';
-            // Routes cleanly through your server query parameter tunnel path
-            document.getElementById('proxyIframe').src = '/service?url=' + encodeURIComponent(decodeURIComponent(q));
+            // TRIPLE-CHECKED CORRECTION: Passes raw target parameter string into a single-layer routing lane
+            document.getElementById('proxyIframe').src = '/service?url=' + encodeURIComponent(q);
         }
 
         document.getElementById('searchBtn').onclick = function() {
