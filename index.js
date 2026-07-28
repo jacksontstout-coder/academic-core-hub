@@ -7,21 +7,31 @@ const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args
 const app = express();
 app.use(cors());
 
-// 1. DYNAMIC GATEWAY LANE: Catch and process the query stream before checking flat filesystem records
-app.get('/service', async (req, res) => {
-    let targetUrl = req.query.url;
-    if (!targetUrl) return res.status(400).send("No target site URL specified.");
+// Securely serve all raw static asset scripts (uv.bundle.js, uv.sw.js) natively out of memory
+app.use(express.static(__dirname));
+
+// 1. ADVANCED REWRITING TUNNEL: Explicitly captures, decodes, and routes Ultraviolet's background stream traffic
+app.get('/service/*', async (req, res) => {
+    // Safely extracts the trailing path block token from the Express wildcard array index
+    let wildcardPath = req.params[0] || '';
+    if (!wildcardPath) return res.status(400).send("No target site URL specified.");
 
     try {
-        // Parse raw string components inside secure server-side container memory
-        targetUrl = decodeURIComponent(targetUrl);
+        // Ultraviolet passes encoded/scrambled URLs. We decode them here inside server memory.
+        let targetUrl = Buffer.from(decodeURIComponent(wildcardPath), 'base64').toString('utf-8');
+
+        if (!targetUrl.startsWith('http')) {
+            targetUrl = 'https://' + targetUrl;
+        }
+
         const urlObj = new URL(targetUrl);
         
+        // Formulate a clean header spoof array layer to blind target firewall filters
         const options = {
             method: 'GET',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Origin': urlObj.origin,
                 'Referer': urlObj.origin
@@ -31,7 +41,7 @@ app.get('/service', async (req, res) => {
         const response = await fetch(targetUrl, options);
         let contentType = response.headers.get('content-type') || '';
 
-        // Seamlessly pass binary elements (video fragments, script modules, styling, fonts)
+        // Seamlessly pass binary elements (video fragments for dulo.tv, live scripts, images, styling fonts)
         if (!contentType.includes('text/html')) {
             const dataBuffer = await response.buffer();
             res.setHeader('Content-Type', contentType);
@@ -40,11 +50,11 @@ app.get('/service', async (req, res) => {
 
         let htmlContent = await response.text();
 
-        // DEFEAT SAME-ORIGIN SECURITY: Inject an internal base path tag so styling and assets resolve natively
+        // DEFEAT SAME-ORIGIN SECURITY: Inject an internal base path tag so relative styling/scripts resolve cleanly
         const injectionBase = `<head><base href="${urlObj.origin}/"><script>
             (function() {
                 try {
-                    // Paralyze frame breakout parameters to freeze browser navigation loops completely
+                    // Paralyze Google and Bing breakout scripts to freeze navigation loops completely
                     Object.defineProperty(window, 'top', { value: window, configurable: false, writable: false });
                     Object.defineProperty(window, 'parent', { value: window, configurable: false, writable: false });
                 } catch(e) {}
@@ -62,17 +72,14 @@ app.get('/service', async (req, res) => {
         res.send(htmlContent);
 
     } catch (err) {
-        res.status(500).send(`<h3>Proxy Server Connection Fault:</h3><p>${err.message}</p>`);
+        res.status(500).send(`<h3>Proxy Server Pipeline Connection Fault:</h3><p>${err.message}</p>`);
     }
 });
 
-// 2. INTERFACE RENDER LANE: Serves the clean frontend layout file directly
+// 2. FRONTEND VIEW CONTROL: Serves your authentic student dashboard interface layout file
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Static fallback directory mapper configuration
-app.use(express.static(__dirname));
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Unrestricted Proxy Tunnel live on port ${PORT}`));
+app.listen(PORT, () => console.log(`Unrestricted Service Worker Tunnel operating live on port ${PORT}`));
