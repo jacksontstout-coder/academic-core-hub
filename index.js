@@ -8,7 +8,6 @@ app.use(cors(), express.static(__dirname));
 app.get('/', (req, res) => {
     const active = req.query.assignment || '';
     const q = req.query.q || '';
-    const banner = active ? `display:inline-block;` : `display:none;`;
 
     res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Student Workspace Portal</title><style>
         body,html{margin:0;padding:0;width:100%;height:100%;font-family:sans-serif;background:#f4f6f9;color:#1e293b;overflow:hidden;}
@@ -53,7 +52,11 @@ app.get('/', (req, res) => {
 });
 
 app.get('/service/*', async (req, res) => {
-    let t = decodeURIComponent(req.params[0]); if(!t) return res.status(400).send("No URL specified.");
+    // CRITICAL FIX: Explicitly targets the index 0 array key within req.params to process wildcards correctly
+    let t = req.params[0];
+    if(!t) return res.status(400).send("No URL specified.");
+    t = decodeURIComponent(t);
+
     try {
         const u = new URL(t);
         const resData = await fetch(t, { headers: { 'User-Agent': 'Mozilla/5.0' } });
