@@ -5,30 +5,18 @@ const path = require('path');
 const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
 
 const app = express();
-app.use(cors(), express.static(__dirname));
+app.use(cors());
 
-// 1. FRONTEND LAYOUT VIEW CONTROL: Serves your index.html file to the browser
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// 2. BACKEND TUNNEL GATEWAY: Explicitly captures, decodes, and streams the live web assets
-app.get('/service/*', async (req, res) => {
-    // TRIPLE-CHECKED PATCH: Safely extracts the raw wildcard parameter text string via the explicit array index '0'
-    let rawPath = req.params[0] || '';
-    if (!rawPath) return res.status(400).send("No target site URL specified.");
-
-    // Automatically decode nested url configurations inside active server memory
-    let targetUrl = decodeURIComponent(rawPath);
-
-    if (!targetUrl.startsWith('http')) {
-        targetUrl = 'https://' + targetUrl;
-    }
+// 1. DYNAMIC GATEWAY LANE: Catch and process the query stream before checking flat filesystem records
+app.get('/service', async (req, res) => {
+    let targetUrl = req.query.url;
+    if (!targetUrl) return res.status(400).send("No target site URL specified.");
 
     try {
+        // Parse raw string components inside secure server-side container memory
+        targetUrl = decodeURIComponent(targetUrl);
         const urlObj = new URL(targetUrl);
         
-        // Formulate a robust spoof array layer to bypass security filters and secure cookie walls
         const options = {
             method: 'GET',
             headers: {
@@ -43,7 +31,7 @@ app.get('/service/*', async (req, res) => {
         const response = await fetch(targetUrl, options);
         let contentType = response.headers.get('content-type') || '';
 
-        // Pass binary streaming elements (videos, audio data tracks, graphics, fonts) straight through the domain
+        // Seamlessly pass binary elements (video fragments, script modules, styling, fonts)
         if (!contentType.includes('text/html')) {
             const dataBuffer = await response.buffer();
             res.setHeader('Content-Type', contentType);
@@ -52,11 +40,11 @@ app.get('/service/*', async (req, res) => {
 
         let htmlContent = await response.text();
 
-        // DEFEAT SAME-ORIGIN SECURITY: Inject an internal base path tag so relative styling/scripts resolve cleanly
+        // DEFEAT SAME-ORIGIN SECURITY: Inject an internal base path tag so styling and assets resolve natively
         const injectionBase = `<head><base href="${urlObj.origin}/"><script>
             (function() {
                 try {
-                    // Paralyze Google and Bing breakout scripts to freeze navigation loops completely
+                    // Paralyze frame breakout parameters to freeze browser navigation loops completely
                     Object.defineProperty(window, 'top', { value: window, configurable: false, writable: false });
                     Object.defineProperty(window, 'parent', { value: window, configurable: false, writable: false });
                 } catch(e) {}
@@ -64,8 +52,6 @@ app.get('/service/*', async (req, res) => {
         <\/script>`;
         
         htmlContent = htmlContent.replace(/<head>/i, injectionBase);
-
-        // Delete restrictive frame locks and network blocks on the server layer before passing data to screen
         htmlContent = htmlContent.replace(/content-security-policy/gi, 'disabled-csp');
         htmlContent = htmlContent.replace(/x-frame-options/gi, 'disabled-xfo');
 
@@ -80,5 +66,13 @@ app.get('/service/*', async (req, res) => {
     }
 });
 
+// 2. INTERFACE RENDER LANE: Serves the clean frontend layout file directly
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Static fallback directory mapper configuration
+app.use(express.static(__dirname));
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Proxy Node Tunnel running live on port ${PORT}`));
+app.listen(PORT, () => console.log(`Unrestricted Proxy Tunnel live on port ${PORT}`));
